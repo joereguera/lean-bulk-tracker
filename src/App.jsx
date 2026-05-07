@@ -4,6 +4,7 @@ import Today from './views/Today.jsx';
 import Week from './views/Week.jsx';
 import Edit from './views/Edit.jsx';
 import PRs from './views/PRs.jsx';
+import Login from './views/Login.jsx';
 
 const B = {
   bg: '#F5F2EB',
@@ -25,7 +26,7 @@ function getTodayDayName() {
 }
 
 export default function App() {
-  const { program, startDate, isLoading, hydrate, setStartDate, getCurrentWeek } = useWorkoutStore();
+  const { program, startDate, isLoading, isAuthenticated, hydrate, logout, setStartDate, getCurrentWeek } = useWorkoutStore();
   const [tab, setTab] = useState('TODAY');
   const [activeDayIndex, setActiveDayIndex] = useState(0);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -75,6 +76,8 @@ export default function App() {
     );
   }
 
+  if (!isAuthenticated) return <Login />;
+
   if (!program) return null;
 
   const week = getCurrentWeek();
@@ -114,13 +117,36 @@ export default function App() {
           {/* Left: title + day info */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
-              fontFamily: "'DM Mono', monospace",
-              fontSize: 10,
-              color: '#666',
-              letterSpacing: '0.08em',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
               marginBottom: 2,
             }}>
-              LEAN BULK PROGRAM
+              <span style={{
+                fontFamily: "'DM Mono', monospace",
+                fontSize: 10,
+                color: '#666',
+                letterSpacing: '0.08em',
+              }}>
+                LEAN BULK PROGRAM
+              </span>
+              <button
+                onClick={logout}
+                style={{
+                  padding: '2px 7px',
+                  border: '1px solid #333',
+                  background: 'transparent',
+                  color: '#555',
+                  fontFamily: "'DM Mono', monospace",
+                  fontSize: 8,
+                  fontWeight: 600,
+                  letterSpacing: '0.08em',
+                  cursor: 'pointer',
+                  lineHeight: 1.6,
+                }}
+              >
+                LOGOUT
+              </button>
             </div>
             <div style={{
               fontFamily: "'DM Sans', sans-serif",

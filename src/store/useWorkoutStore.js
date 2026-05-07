@@ -1,10 +1,14 @@
 import { create } from 'zustand';
-import { get as idbGet, set as idbSet } from 'idb-keyval';
+import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
 import { DEFAULT_PROGRAM } from '../data/defaultProgram.js';
 
 const LS_PROG = 'lb4_prog';
 const LS_LOG = 'lb4_log';
 const LS_START = 'lb4_start';
+const LS_AUTH = 'lb4_auth';
+const LS_PASSWORD = 'lb4_password';
+const DEFAULT_PASSWORD = 'Hormé2024!';
+const ALLOWED_EMAIL = 'jmpaperless@gmail.com';
 
 function lsRead(key) {
   try {
@@ -35,9 +39,21 @@ function lsReadRaw(key) {
   }
 }
 
+function lsRemove(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {}
+}
+
 async function idbMirror(key, value) {
   try {
     await idbSet(key, value);
+  } catch {}
+}
+
+async function idbRemove(key) {
+  try {
+    await idbDel(key);
   } catch {}
 }
 
@@ -46,8 +62,13 @@ export const useWorkoutStore = create((set, get) => ({
   log: {},
   startDate: null,
   isLoading: true,
+  isAuthenticated: false,
 
   hydrate: async () => {
+    // Auth — check localStorage first for instant render
+    const lsAuth = lsReadRaw(LS_AUTH);
+    const lsPassword = lsReadRaw(LS_PASSWORD);
+
     // Layer 1: localStorage (synchronous, immediate)
     const lsProg = lsRead(LS_PROG);
     const lsLog = lsRead(LS_LOG);
@@ -58,26 +79,37 @@ export const useWorkoutStore = create((set, get) => ({
         program: lsProg,
         log: lsLog || {},
         startDate: lsStart || null,
+        isAuthenticated: lsAuth === 'true',
         isLoading: false,
       });
     }
 
     // Layer 2: IndexedDB fallback if localStorage was empty
     try {
-      const [idbProg, idbLog, idbStart] = await Promise.all([
+      const [idbProg, idbLog, idbStart, idbAuth, idbPassword] = await Promise.all([
         idbGet(LS_PROG),
         idbGet(LS_LOG),
         idbGet(LS_START),
+        idbGet(LS_AUTH),
+        idbGet(LS_PASSWORD),
       ]);
 
       if (!lsProg) {
-        // Use IndexedDB data if localStorage had nothing
         set({
           program: idbProg || DEFAULT_PROGRAM,
           log: idbLog || {},
           startDate: idbStart || null,
+          isAuthenticated: idbAuth === true || lsAuth === 'true',
           isLoading: false,
         });
+      }
+
+      // Ensure password is seeded in both stores
+      if (!lsPassword && !idbPassword) {
+        lsWriteRaw(LS_PASSWORD, DEFAULT_PASSWORD);
+        idbMirror(LS_PASSWORD, DEFAULT_PASSWORD);
+      } else if (!lsPassword && idbPassword) {
+        lsWriteRaw(LS_PASSWORD, idbPassword);
       }
     } catch {
       if (!lsProg) {
@@ -85,10 +117,45 @@ export const useWorkoutStore = create((set, get) => ({
       }
     }
 
-    // Request persistent storage on first launch
+    // Seed default password in localStorage if missing (no IDB available)
+    if (!lsPassword) {
+      lsWriteRaw(LS_PASSWORD, DEFAULT_PASSWORD);
+      idbMirror(LS_PASSWORD, DEFAULT_PASSWORD);
+    }
+
     if (navigator.storage && navigator.storage.persist) {
       navigator.storage.persist().catch(() => {});
     }
+  },
+
+  login: (email, password) => {
+    if (email.trim().toLowerCase() !== ALLOWED_EMAIL) {
+      return 'UNAUTHORIZED';
+    }
+    const storedPassword = lsReadRaw(LS_PASSWORD) || DEFAULT_PASSWORD;
+    if (password !== storedPassword) {
+      return 'INCORRECT PASSWORD';
+    }
+    set({ isAuthenticated: true });
+    lsWriteRaw(LS_AUTH, 'true');
+    idbMirror(LS_AUTH, true);
+    return null;
+  },
+
+  logout: () => {
+    set({ isAuthenticated: false });
+    lsRemove(LS_AUTH);
+    idbRemove(LS_AUTH);
+  },
+
+  changePassword: (current, next, confirm) => {
+    const stored = lsReadRaw(LS_PASSWORD) || DEFAULT_PASSWORD;
+    if (current !== stored) return 'Current password is incorrect.';
+    if (!next) return 'New password cannot be empty.';
+    if (next !== confirm) return 'Passwords do not match.';
+    lsWriteRaw(LS_PASSWORD, next);
+    idbMirror(LS_PASSWORD, next);
+    return null;
   },
 
   saveLog: (key, value) => {
