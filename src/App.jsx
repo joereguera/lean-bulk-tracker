@@ -27,6 +27,7 @@ function getTodayDayName() {
 
 export default function App() {
   const { program, startDate, isLoading, isAuthenticated, hydrate, logout, setStartDate, getCurrentWeek } = useWorkoutStore();
+  console.log('APP RENDER - isAuthenticated:', isAuthenticated)
   const [tab, setTab] = useState('TODAY');
   const [activeDayIndex, setActiveDayIndex] = useState(0);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -44,39 +45,9 @@ export default function App() {
     if (idx !== -1) setActiveDayIndex(idx);
   }, [program?.split?.length]);
 
-  if (isLoading) {
-    return (
-      <div style={{
-        height: '100%',
-        background: B.black,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'column',
-        gap: 16,
-      }}>
-        <div style={{
-          fontFamily: "'DM Sans', sans-serif",
-          fontWeight: 800,
-          fontSize: 28,
-          color: B.white,
-          letterSpacing: '0.05em',
-        }}>
-          LEAN BULK
-        </div>
-        <div style={{
-          fontFamily: "'DM Mono', monospace",
-          fontSize: 10,
-          color: '#555',
-          letterSpacing: '0.1em',
-        }}>
-          LOADING...
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) return <Login />;
+  console.log('isAuthenticated:', isAuthenticated, 'isLoading:', isLoading)
+  if (isLoading) return <div style={{background:'#1A1A1A',minHeight:'100vh'}} />
+  if (!isAuthenticated) return <Login />
 
   if (!program) return null;
 

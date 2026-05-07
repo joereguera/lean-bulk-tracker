@@ -74,6 +74,7 @@ export const useWorkoutStore = create((set, get) => ({
 
     // isAuthenticated is ONLY true if lb4_auth is exactly the string 'true'
     const authFromLS = lsAuth === 'true';
+    console.log('hydrating, lsAuth:', lsAuth, 'authFromLS:', authFromLS)
 
     if (lsProg) {
       // All data available synchronously — render immediately, no IDB needed
