@@ -8,6 +8,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'inline',
+      filename: 'sw2.js',
       workbox: {
         clientsClaim: true,
         skipWaiting: true,
@@ -18,6 +19,7 @@ export default defineConfig({
         name: 'Lean Bulk Tracker',
         short_name: 'Lean Bulk',
         description: 'Track your lean bulk workouts',
+        version: '2.0.0',
         start_url: '/',
         display: 'standalone',
         background_color: '#1A1A1A',
