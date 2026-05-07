@@ -65,26 +65,28 @@ export const useWorkoutStore = create((set, get) => ({
   isAuthenticated: false,
 
   hydrate: async () => {
-    // Auth — check localStorage first for instant render
+    // Read auth and program synchronously from localStorage first
     const lsAuth = lsReadRaw(LS_AUTH);
     const lsPassword = lsReadRaw(LS_PASSWORD);
-
-    // Layer 1: localStorage (synchronous, immediate)
     const lsProg = lsRead(LS_PROG);
     const lsLog = lsRead(LS_LOG);
     const lsStart = lsReadRaw(LS_START);
 
+    // isAuthenticated is ONLY true if lb4_auth is exactly the string 'true'
+    const authFromLS = lsAuth === 'true';
+
     if (lsProg) {
+      // All data available synchronously — render immediately, no IDB needed
       set({
         program: lsProg,
         log: lsLog || {},
         startDate: lsStart || null,
-        isAuthenticated: lsAuth === 'true',
+        isAuthenticated: authFromLS,
         isLoading: false,
       });
     }
 
-    // Layer 2: IndexedDB fallback if localStorage was empty
+    // Always check IDB: seed missing data or hydrate on first launch
     try {
       const [idbProg, idbLog, idbStart, idbAuth, idbPassword] = await Promise.all([
         idbGet(LS_PROG),
@@ -95,16 +97,19 @@ export const useWorkoutStore = create((set, get) => ({
       ]);
 
       if (!lsProg) {
+        // localStorage was empty — use IDB data (or defaults for first launch)
+        // IDB stores auth as the string 'true' (same as localStorage)
+        const authFromIDB = idbAuth === 'true';
         set({
           program: idbProg || DEFAULT_PROGRAM,
           log: idbLog || {},
           startDate: idbStart || null,
-          isAuthenticated: idbAuth === true || lsAuth === 'true',
+          isAuthenticated: authFromLS || authFromIDB,
           isLoading: false,
         });
       }
 
-      // Ensure password is seeded in both stores
+      // Seed default password if missing from both stores
       if (!lsPassword && !idbPassword) {
         lsWriteRaw(LS_PASSWORD, DEFAULT_PASSWORD);
         idbMirror(LS_PASSWORD, DEFAULT_PASSWORD);
@@ -113,14 +118,19 @@ export const useWorkoutStore = create((set, get) => ({
       }
     } catch {
       if (!lsProg) {
-        set({ program: DEFAULT_PROGRAM, log: {}, startDate: null, isLoading: false });
+        // IDB unavailable and no localStorage — first launch with no storage
+        set({
+          program: DEFAULT_PROGRAM,
+          log: {},
+          startDate: null,
+          isAuthenticated: false,
+          isLoading: false,
+        });
+        // Seed default password into localStorage only
+        if (!lsPassword) {
+          lsWriteRaw(LS_PASSWORD, DEFAULT_PASSWORD);
+        }
       }
-    }
-
-    // Seed default password in localStorage if missing (no IDB available)
-    if (!lsPassword) {
-      lsWriteRaw(LS_PASSWORD, DEFAULT_PASSWORD);
-      idbMirror(LS_PASSWORD, DEFAULT_PASSWORD);
     }
 
     if (navigator.storage && navigator.storage.persist) {
@@ -137,8 +147,9 @@ export const useWorkoutStore = create((set, get) => ({
       return 'INCORRECT PASSWORD';
     }
     set({ isAuthenticated: true });
+    // Store as the string 'true' in both stores — consistent with === 'true' checks
     lsWriteRaw(LS_AUTH, 'true');
-    idbMirror(LS_AUTH, true);
+    idbMirror(LS_AUTH, 'true');
     return null;
   },
 
